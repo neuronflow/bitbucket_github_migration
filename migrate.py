@@ -121,6 +121,21 @@ def archive_github_repo(repo_name):
     else:
         print(f"Error archiving GitHub repo: {r.status_code}")
 
+def unarchive_github_repo(repo_name):
+    api_url = f"https://api.github.com/repos/{github_user}/{repo_name}"
+    r = requests.patch(
+        api_url,
+        data=json.dumps({"archived": False}),
+        headers={
+            "Authorization": f"token {github_access_token}",
+            "Accept": "application/vnd.github.v3+json",
+        },
+    )
+    if r.status_code == 200:
+        print(f"Unarchived {repo_name}")
+    else:
+        print(f"Error unarchiving GitHub repo: {r.status_code}")
+
 def clone(bitbucket_origin, path):
     process = subprocess.Popen(
         ["git", "clone", "--mirror", bitbucket_origin, path], stdout=subprocess.PIPE
@@ -224,6 +239,9 @@ def migrate(bb_repo_name, bb_repo_clone_url, last_create_time):
     rewrite_git_history(local_path)
     lfs(local_path)
     github_origin = get_github_origin(gh_repo)
+
+    # Unarchive the repo if it is archived
+    unarchive_github_repo(gh_repo)
     push(github_origin, local_path)
     print(f"pushed to {github_origin}")
     archive_github_repo(gh_repo)
