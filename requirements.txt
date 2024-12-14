@@ -1,0 +1,5 @@
+python-dotenv
+requests
+tqdm
+json
+# git-filter-repo
