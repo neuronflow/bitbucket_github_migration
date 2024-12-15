@@ -10,23 +10,24 @@ import time
 load_dotenv()
 
 # Load Bitbucket credentials from environment variables
-bitbucket_user = os.getenv('BITBUCKET_USER')
-bitbucket_pass = os.getenv('BITBUCKET_PASS')
-bitbucket_org = os.getenv('BITBUCKET_ORG')
+bitbucket_user = os.getenv("BITBUCKET_USER")
+bitbucket_pass = os.getenv("BITBUCKET_PASS")
+bitbucket_org = os.getenv("BITBUCKET_ORG")
 
 # Load GitHub credentials from environment variables
-github_user = os.getenv('GITHUB_USER')
-github_access_token = os.getenv('GITHUB_ACCESS_TOKEN')
-github_org = os.getenv('GITHUB_ORG')
+github_user = os.getenv("GITHUB_USER")
+github_access_token = os.getenv("GITHUB_ACCESS_TOKEN")
+github_org = os.getenv("GITHUB_ORG")
 
 # Load author and committer names and emails from environment variables
-git_author_name_old1 = os.getenv('GIT_AUTHOR_NAME_OLD1')
-git_author_name_old2 = os.getenv('GIT_AUTHOR_NAME_OLD2')
-git_author_name_old3 = os.getenv('GIT_AUTHOR_NAME_OLD3')
-git_author_name_new = os.getenv('GIT_AUTHOR_NAME_NEW')
-git_author_email_new = os.getenv('GIT_AUTHOR_EMAIL_NEW')
-git_committer_name_new = os.getenv('GIT_COMMITTER_NAME_NEW')
-git_committer_email_new = os.getenv('GIT_COMMITTER_EMAIL_NEW')
+git_author_name_old1 = os.getenv("GIT_AUTHOR_NAME_OLD1")
+git_author_name_old2 = os.getenv("GIT_AUTHOR_NAME_OLD2")
+git_author_name_old3 = os.getenv("GIT_AUTHOR_NAME_OLD3")
+git_author_name_new = os.getenv("GIT_AUTHOR_NAME_NEW")
+git_author_email_new = os.getenv("GIT_AUTHOR_EMAIL_NEW")
+git_committer_name_new = os.getenv("GIT_COMMITTER_NAME_NEW")
+git_committer_email_new = os.getenv("GIT_COMMITTER_EMAIL_NEW")
+
 
 def get_bitbucket_repos_page(url):
     r = requests.get(url, auth=(bitbucket_user, bitbucket_pass))
@@ -35,6 +36,7 @@ def get_bitbucket_repos_page(url):
     else:
         print(f"Error: {r.status_code}")
         return None
+
 
 def get_bitbucket_repos():
     repos = []
@@ -56,6 +58,7 @@ def get_bitbucket_repos():
                     repos.append((repo["name"], clonelink["href"]))
     return repos
 
+
 def create_github_name(bitbucket_name):
     parts = bitbucket_name.split("_")
     if parts[0].isdigit():
@@ -63,8 +66,10 @@ def create_github_name(bitbucket_name):
         parts.append(job_no)
     return "bb_" + "_".join(parts).lower().replace(" ", "")
 
+
 def get_github_origin(repo_name):
     return f"https://github.com/{github_user}/{repo_name}.git"
+
 
 def is_github_repo_empty(repo_name):
     api_url = f"https://api.github.com/repos/{github_user}/{repo_name}"
@@ -75,7 +80,7 @@ def is_github_repo_empty(repo_name):
     r = requests.get(api_url, headers=headers)
     if r.status_code == 200:
         repo_info = r.json()
-        return repo_info['size'] == 0
+        return repo_info["size"] == 0
     elif r.status_code == 404:
         return True  # Repository does not exist
     else:
@@ -83,28 +88,27 @@ def is_github_repo_empty(repo_name):
         print(f"Response: {r.text}")
         return False
 
+
 def create_github_repo(repo_name, last_create_time):
     min_interval = 2  # Minimum interval between create operations in seconds
     elapsed_time = time.time() - last_create_time
     if elapsed_time < min_interval:
         time.sleep(min_interval - elapsed_time)
-    
+
     api_url = f"https://api.github.com/user/repos"  # For personal accounts
     headers = {
         "Authorization": f"token {github_access_token}",
         "Accept": "application/vnd.github.v3+json",
     }
-    data = json.dumps({
-        "name": repo_name,
-        "private": True,
-    })
+    data = json.dumps(
+        {
+            "name": repo_name,
+            "private": True,
+        }
+    )
     r = requests.post(api_url, headers=headers, data=data)
-    if r.status_code == 201:
-        return True, time.time()
-    else:
-        print(f"Error creating GitHub repo: {r.status_code}")
-        print(f"Response: {r.text}")
-        return False, time.time()
+    return r.status_code == 201, r
+
 
 def archive_github_repo(repo_name):
     api_url = f"https://api.github.com/repos/{github_user}/{repo_name}"
@@ -121,6 +125,7 @@ def archive_github_repo(repo_name):
     else:
         print(f"Error archiving GitHub repo: {r.status_code}")
 
+
 def unarchive_github_repo(repo_name):
     api_url = f"https://api.github.com/repos/{github_user}/{repo_name}"
     r = requests.patch(
@@ -136,24 +141,18 @@ def unarchive_github_repo(repo_name):
     else:
         print(f"Error unarchiving GitHub repo: {r.status_code}")
 
+
 def clone(bitbucket_origin, path):
     process = subprocess.Popen(
         ["git", "clone", "--mirror", bitbucket_origin, path], stdout=subprocess.PIPE
     )
     process.communicate()[0]
 
-def remove_large_files(path, size_limit=100):
-    # Convert size limit to bytes
-    size_limit_bytes = size_limit * 1024 * 1024
 
+def remove_large_files(path, size_limit="100M"):
     # Run git filter-repo to remove large files
     process = subprocess.Popen(
-        [
-            "git",
-            "filter-repo",
-            "--strip-blobs-bigger-than",
-            f"{size_limit_bytes}B"
-        ],
+        ["git", "filter-repo", "--strip-blobs-bigger-than", size_limit],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         cwd=path,
@@ -161,6 +160,7 @@ def remove_large_files(path, size_limit=100):
     stdout, stderr = process.communicate()
     print(stdout.decode())
     print(stderr.decode())
+
 
 def rewrite_git_history(path):
     process = subprocess.Popen(
@@ -194,8 +194,10 @@ def rewrite_git_history(path):
     print(stdout.decode())
     print(stderr.decode())
 
+
 def lfs(path):
     conf = []
+
 
 def push(github_origin, path):
     process = subprocess.Popen(
@@ -203,11 +205,13 @@ def push(github_origin, path):
     )
     process.communicate()[0]
 
+
 def delete(path):
     process = subprocess.Popen(["rm", "-rf", path], stdout=subprocess.PIPE)
     process.communicate()[0]
 
-def migrate(bb_repo_name, bb_repo_clone_url, last_create_time):
+
+def migrate_repo(bb_repo_name, bb_repo_clone_url, last_create_time):
     repo_clone_url = "".join(
         [
             bb_repo_clone_url.split("@")[0],
@@ -223,12 +227,18 @@ def migrate(bb_repo_name, bb_repo_clone_url, last_create_time):
     print(f"{bb_repo_name} converted to {gh_repo}")
 
     if not is_github_repo_empty(gh_repo):
-        print(f"GitHub repo {gh_repo} already exists and is not empty, skipping creation.")
+        print(
+            f"GitHub repo {gh_repo} already exists and is not empty, skipping creation and push."
+        )
+        return last_create_time
+
+    success, response = create_github_repo(gh_repo, last_create_time)
+    if not success and "name already exists on this account" in response.text:
+        print(f"GitHub repo {gh_repo} already exists, proceeding with migration.")
+    elif not success:
+        print("failed to create GH repo ")
+        return last_create_time
     else:
-        success, last_create_time = create_github_repo(gh_repo, last_create_time)
-        if not success:
-            print("failed to create GH repo ")
-            return last_create_time
         print("new GH repo created")
 
     local_path = os.path.abspath(os.path.join("tmp_data", gh_repo))
@@ -251,8 +261,18 @@ def migrate(bb_repo_name, bb_repo_clone_url, last_create_time):
     print(f"New GitHub URL: {github_origin}")
     return last_create_time
 
-if __name__ == "__main__":
+
+def migrate_all_repos():
     repos = get_bitbucket_repos()
     last_create_time = time.time()
     for repo in tqdm(repos):
-        last_create_time = migrate(*repo, last_create_time)
+        last_create_time = migrate_repo(*repo, last_create_time)
+
+
+def extract_repo_name_from_url(url):
+    return url.rstrip("/").split("/")[-1]
+
+
+if __name__ == "__main__":
+    # Migrate all repositories
+    migrate_all_repos()
